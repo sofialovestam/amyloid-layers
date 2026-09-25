@@ -12,7 +12,9 @@
 #     rotate:  degrees, counter-clockwise (e.g. 90, -45)
 #     flip:    true  -> mirror image (view from the other end of the fibril)
 #     chains:  [A, B] -> use exactly these chains instead of the automatic choice
-#     dots:    [[x, y], [x, y]]  cyan dots (non-protein densities), in Å from
+#     densities: false             -> no densities for this structure
+#     density_peak: 0.5            -> stricter for this structure only (fewer shown)
+#     dots:    [[x, y], [x, y]]  extra hand-placed dots, in Å from
 #              the centre of the structure (x right, y up). Set  grid: true
 #              temporarily to see an Å grid to help you place them.
 #
@@ -34,6 +36,14 @@ page:
   style: outline      # outline (like the original) or solid
   font: Helvetica, Arial, sans-serif
   font_size: 7
+
+  # Non-proteinaceous densities: map density the atomic model does not explain.
+  # Found automatically from the EMDB map linked to each PDB entry.
+  densities: true             # false = leave them out everywhere
+  density_color: "#2bb5d9"
+  density_threshold: 0.22     # outline level; lower = bigger shapes
+  density_peak: 0.35          # lower = more (weaker) densities shown
+  density_label: Non-proteinaceous density
 
 columns: 3
 core_residues: true   # panel b underneath; set to false to leave it out

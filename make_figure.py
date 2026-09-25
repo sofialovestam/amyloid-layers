@@ -15,11 +15,15 @@ import numpy as np
 import resvg_py
 import yaml
 
+import densities
+
 from amyloid_layer import chain_proteins, fetch, find_axis, load_chains, pick_layer, projection_frame, segments
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.expanduser("~/.cache/amyloid_pdb")
 DOT_COLOR = "#2bb5d9"
+DENSITY_LEVELS = (1.0, 1.4, 2.0)      # nested contours, as multiples of the outline level
+DENSITY_SHADES = (0.55, 0.25, 0.0)     # how much each is lightened towards white
 
 MARGIN = 6
 COL_GAP = 12
@@ -41,7 +45,7 @@ CORE_BAR = 2.6
 
 
 # ------------------------------------------------------------- structures
-def layer_traces(spec):
+def layer_traces(spec, page):
     """Cα polylines (in Å, centred, x right / y up) for one structure entry."""
     src = str(spec["id"])
     local = os.path.join(HERE, src)
@@ -74,8 +78,31 @@ def layer_traces(spec):
     mid = (allxy.min(0) + allxy.max(0)) / 2
     lines = [(l - mid, d) for l, d in lines]
     allxy = allxy - mid
+
+    # map density not explained by the model, in the same 2D frame
+    blobs, note = [], ""
+    if page.get("densities", True) and spec.get("densities", True):
+        try:
+            u, v, img, level = densities.unexplained(
+                path, layer, (c, ex, ey),
+                threshold=float(spec.get("density_threshold", page.get("density_threshold", 0.22))),
+                peak=float(spec.get("density_peak", page.get("density_peak", 0.35))))
+            for rings in densities.contours(u, v, img, [level * f for f in DENSITY_LEVELS]):
+                out = []
+                for r in rings:
+                    xy = r @ rot.T
+                    if spec.get("flip"):
+                        xy[:, 0] *= -1
+                    out.append(xy - mid)
+                blobs.append(out)
+            n = len(blobs[0]) if blobs else 0
+            note = f"{n} extra densit{'y' if n == 1 else 'ies'}"
+            if blobs and blobs[0]:
+                allxy = np.vstack([allxy] + blobs[0])
+        except Exception as e:
+            note = f"no densities ({e})"
     return dict(lines=lines, lo=allxy.min(0), hi=allxy.max(0), title=title, layer=layer,
-                residues=residues, lengths=lengths)
+                residues=residues, lengths=lengths, blobs=blobs, note=note)
 
 
 class Proteins:
@@ -126,6 +153,7 @@ def structure_svg(s, spec, prot, page, cx, cy):
         return (f'<polyline points="{pts}" fill="none" stroke="{stroke}" stroke-width="{width:.2f}" '
                 f'stroke-linejoin="round" stroke-linecap="round"/>')
 
+    out += density_svg(s, page, cx, cy)
     for xy, desc in s["lines"]:
         out.append(poly(xy, prot.color(desc), lw))
     if page.get("style", "outline") == "outline":
@@ -135,6 +163,21 @@ def structure_svg(s, spec, prot, page, cx, cy):
         out.append(f'<circle cx="{cx + x * k:.2f}" cy="{cy - y * k:.2f}" r="{lw * 1.5:.2f}" fill="{DOT_COLOR}"/>')
     out.append("</g>")
     return "\n".join(out)
+
+
+def density_svg(s, page, cx, cy):
+    """Nested filled contours: pale outline of the density, stronger shades towards its core."""
+    k = page["scale"]
+    color = page.get("density_color", DOT_COLOR)
+    out = []
+    for i, rings in enumerate(s.get("blobs") or []):
+        if not rings:
+            continue
+        d = " ".join("M" + " L".join(f"{cx + x * k:.2f},{cy - y * k:.2f}" for x, y in r) + " Z" for r in rings)
+        edge = f' stroke="{lighten(color, 0.35)}" stroke-width="0.2"' if i == 0 else ""
+        out.append(f'<path class="density" d="{d}" fill="{lighten(color, DENSITY_SHADES[i])}" '
+                   f'fill-rule="evenodd"{edge}/>')
+    return out
 
 
 def grid_svg(s, k, cx, cy):
@@ -205,8 +248,8 @@ def build(cfg):
                 if key in cache:
                     continue
                 try:
-                    s = layer_traces(spec)
-                    print(f"  {spec['id']:<8} chains {'+'.join(s['layer']):<6} {s['title'][:70]}")
+                    s = layer_traces(spec, page)
+                    print(f"  {spec['id']:<8} chains {'+'.join(s['layer']):<8} {s['note']:<18} {s['title'][:60]}")
                 except Exception as e:
                     s = None
                     failures.append(f"{spec['id']}: {e}")
@@ -270,6 +313,9 @@ def build(cfg):
         col_y[ci] = y + FAMILY_GAP
 
     y_b = max(col_y) - FAMILY_GAP + PANEL_GAP
+    if page.get("densities", True):
+        body.append(legend_svg(page, MARGIN, y_b - PANEL_GAP + 10))
+        y_b += 8
     if cfg.get("core_residues", True):
         body.append(text(MARGIN, y_b + 9, "b", page, size=page["font_size"] + 4, bold=True))
         y_end = core_panel(cfg, page, cache, body, y_b + PANEL_LETTER_H, colw, ncol)
@@ -280,6 +326,16 @@ def build(cfg):
            f'viewBox="0 0 {page["width"]} {H:.0f}">\n<rect width="100%" height="100%" fill="white"/>\n'
            + "\n".join(body) + "\n</svg>\n")
     return svg, singles, page, failures
+
+
+def legend_svg(page, x, y):
+    color = page.get("density_color", DOT_COLOR)
+    g = ['<g id="legend">']
+    for r, shade in zip((3.2, 2.1, 1.0), DENSITY_SHADES):
+        g.append(f'<circle cx="{x + 4:.1f}" cy="{y:.1f}" r="{r}" fill="{lighten(color, shade)}"/>')
+    g.append(text(x + 10, y + 2.3, page.get("density_label", "Non-proteinaceous density"), page))
+    g.append("</g>")
+    return "\n".join(g)
 
 
 def runs(nums, tolerance=2):

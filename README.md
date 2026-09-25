@@ -34,6 +34,17 @@ Tip: change the Illustrator file only for final touches. Anything you want to ke
 for next time (rotation, dots, labels) belongs in figure.yaml, because the figure is
 rebuilt from scratch on every run.
 
+## Non-proteinaceous densities
+
+Found automatically: for each structure the EMDB map deposited with it is downloaded
+(cached in `~/.cache/amyloid_emdb`), density within 2.5 Å of any modelled atom is removed,
+and the remaining blobs in the layer are drawn as nested contours (pale = weaker density).
+Levels are relative to the protein density in the same map, so maps look comparable.
+
+In figure.yaml: `densities: false` (everywhere, or per structure), `density_peak`
+(lower = more blobs), `density_threshold` (lower = bigger outlines). If a map does not fit its
+model, the terminal says so and no densities are drawn for that structure.
+
 ## Panel b: core-forming residues
 
 Worked out automatically from the residues modelled in each box's structures.
