@@ -104,6 +104,7 @@ families:
         group: 4R
         structures:
           - id: 7P65
+            density_mode: all   # both enclosed densities
       - label: LNT
         group: 4R
         structures:
