@@ -1,0 +1,212 @@
+# ============================================================================
+#  AMYLOID FIGURE LAYOUT
+#  Edit this file, save, then run:   ~/Projects/amyloid-layers/make_figure.sh
+#
+#  Rules of thumb for editing:
+#   - Indentation matters (use spaces, never tabs). Copy an existing block
+#     and change it rather than typing from scratch.
+#   - Anything after a # is a comment and is ignored.
+#
+#  Per structure you can set:
+#     id:      PDB ID (downloaded automatically) or path to a local .cif file
+#     rotate:  degrees, counter-clockwise (e.g. 90, -45)
+#     flip:    true  -> mirror image (view from the other end of the fibril)
+#     chains:  [A, B] -> use exactly these chains instead of the automatic choice
+#     dots:    [[x, y], [x, y]]  cyan dots (non-protein densities), in Å from
+#              the centre of the structure (x right, y up). Set  grid: true
+#              temporarily to see an Å grid to help you place them.
+#
+#  Per box you can set:
+#     label:       text in the bottom-right corner of the box
+#     core_label:  shorter text for panel b (otherwise the label is used)
+#     group:       side label like 3R / 4R (boxes with the same group get a frame)
+#
+#  Per family:
+#     protein:  word(s) from the PDB protein name, used to pick this protein's
+#               chains for panel b (e.g. "tau" matches "Microtubule-associated protein tau")
+#     length:   full length of the protein for panel b
+# ============================================================================
+
+page:
+  width: 560          # total figure width (px; 1 px = 1 pt in Illustrator)
+  scale: 0.42         # px per Å - the same for every structure
+  line_width: 1.0     # thickness of the Cα trace
+  style: outline      # outline (like the original) or solid
+  font: Helvetica, Arial, sans-serif
+  font_size: 7
+
+columns: 3
+core_residues: true   # panel b underneath; set to false to leave it out
+
+# Other proteins inside heteromeric filaments get their own colour and their own
+# line in panel b. "match" is text from the PDB protein name.
+extra_proteins:
+  - match: Annexin A11
+    name: ANXA11
+    color: "#7a5cb8"
+    length: 505
+
+families:
+
+  # ------------------------------------------------------------------ TAU
+  - name: Tau
+    color: "#3d67ad"
+    column: 1
+    protein: tau
+    length: 441         # 2N4R, the longest brain isoform
+    boxes:
+      - label: PID
+        group: 3R
+        structures:
+          - id: 6GX5        # narrow Pick filament
+      - label: AD, PART, GSS, FBD, FDD
+        core_label: AD
+        group: 3R:4R
+        structures:
+          - id: 5O3T        # straight filament
+          - id: 5O3L        # paired helical filament
+      - label: TES, SSPE, ALS/PDC
+        core_label: CTE
+        group: 3R:4R
+        structures:
+          - id: 6NWP
+          - id: 6NWQ
+      - label: CBD
+        group: 4R
+        structures:
+          - id: 6TJO
+          - id: 6TJX
+      - label: AGD, ARTAG, FTDP-17T (+3/+16)
+        core_label: AGD
+        group: 4R
+        structures:
+          - id: 7P6D
+          - id: 7P6E
+      - label: PSP
+        group: 4R
+        structures:
+          - id: 7P65
+      - label: LNT
+        group: 4R
+        structures:
+          - id: 7P6A
+          - id: 7P6C
+      - label: GGT
+        group: 4R
+        structures:
+          - id: 7P66
+          - id: 7P67
+          - id: 7P68
+
+  # ------------------------------------------------------------ α-SYNUCLEIN
+  - name: α-Synuclein
+    color: "#c8283a"
+    column: 2
+    protein: synuclein
+    length: 140
+    boxes:
+      - label: PD, PDD, DLB
+        structures:
+          - id: 8A9L
+      - label: MSA
+        structures:
+          - id: 6XYO
+          - id: 6XYP
+      - label: JOS
+        structures:
+          - id: 8BQV
+          - id: 8BQW
+
+  # ------------------------------------------------------------------ TDP-43
+  - name: TDP-43
+    color: "#e8b830"
+    column: 2
+    protein: TAR DNA
+    length: 414
+    boxes:
+      - label: ALS, FTD (FTLD B)
+        structures:
+          - id: 7PY2
+      - label: FTD (FTLD A)
+        structures:
+          - id: 8CG3
+      - label: FTD (FTLD C)
+        structures:        # heteromeric ANXA11 + TDP-43 (Arseni et al.)
+          - id: 9FOF
+          - id: 9FOR
+
+  # ------------------------------------------------------------- AMYLOID-β
+  - name: Amyloid-β
+    color: "#5f8f3e"
+    column: 3
+    protein: Amyloid-beta
+    core_name: Amyloid-β
+    length: 42
+    boxes:
+      - label: AD (type I parenchyma)
+        structures:
+          - id: 7Q4B
+      - label: AD (type II parenchyma)
+        structures:
+          - id: 7Q4M
+      - label: AD (Arctic parenchyma)
+        structures:
+          - id: 8BG0
+      - label: AD (meninges)
+        structures:
+          - id: 6SHS
+
+  # ---------------------------------------------------------------- TMEM106B
+  - name: TMEM106B
+    color: "#ee8a3c"
+    column: 2
+    protein: 106B
+    length: 274
+    boxes:
+      - label: "?"
+        structures:
+          - id: 7QVC
+          - id: 7QVF
+          - id: 7QWG
+          - id: 7QWL
+          - id: 7QWM
+
+  # ------------------------------------------------------------------ TAF15
+  # Tetter et al. (Ryskeldi-Falcon lab). Fold A: Nature 2024; folds B-H: bioRxiv 2026.
+  # Replace the fold labels with the FTLD-TAF15 subtype names you want to show.
+  - name: TAF15
+    color: "#1b9e8a"
+    column: 3
+    protein: TATA-binding
+    length: 592
+    boxes:
+      - label: aFTLD-U (fold A)
+        structures:
+          - id: 8ONS
+      - label: Fold B
+        structures:
+          - id: 9THM
+          - id: 9THN
+          - id: 9THP
+      - label: Fold C
+        structures:
+          - id: 9TKK
+          - id: 9TKL       # doublet
+          - id: 9TL2
+      - label: Fold D / D′
+        structures:
+          - id: 9TKJ
+          - id: 9TKZ
+      - label: Fold E
+        structures:
+          - id: 9TKH
+          - id: 9TKI
+      - label: Fold F
+        structures:
+          - id: 9TKG
+      - label: Fold G
+        structures:
+          - id: 9TKF
+      - label: Fold H (Y38C)
+        structures:
+          - id: 9TKE

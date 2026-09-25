@@ -1,0 +1,9 @@
+# One PDB ID per line. Lines starting with # are ignored.
+# You can also put the path to a .cif file you have on your computer.
+5O3L
+6NWP
+6TJO
+5OQV
+7Q4B
+6CU7
+6SST
