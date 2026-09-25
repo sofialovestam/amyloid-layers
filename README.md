@@ -42,7 +42,12 @@ and the remaining blobs that sit inside the filament core (or between protofilam
 the protein are drawn as nested contours (pale = weaker density).
 Levels are relative to the protein density in the same map, so maps look comparable.
 
-In figure.yaml: `densities: false` (everywhere, or per structure), `density_inside`
+By default only the most enclosed density next to each protofilament is shown
+(`density_mode: per_protofilament`; `all` shows every qualifying one).
+To choose by hand: add `density_numbers: true` under a structure, rebuild, look at the numbers
+in the figure (red = currently shown), then set e.g. `density_pick: [2]` and remove the numbers.
+
+In figure.yaml: `densities: false` (everywhere, per family, or per structure), `density_inside`
 (0 = also show densities on the outer surface), `density_peak`
 (lower = more blobs), `density_threshold` (lower = bigger outlines). If a map does not fit its
 model, the terminal says so and no densities are drawn for that structure.

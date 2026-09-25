@@ -45,7 +45,7 @@ CORE_BAR = 2.6
 
 
 # ------------------------------------------------------------- structures
-def layer_traces(spec, page):
+def layer_traces(spec, page, fam=None):
     """Cα polylines (in Å, centred, x right / y up) for one structure entry."""
     src = str(spec["id"])
     local = os.path.join(HERE, src)
@@ -80,14 +80,23 @@ def layer_traces(spec, page):
     allxy = allxy - mid
 
     # map density not explained by the model, in the same 2D frame
-    blobs, note = [], ""
-    if page.get("densities", True) and spec.get("densities", True):
+    blobs, labels, note = [], [], ""
+    opt = lambda key, default: spec.get(key, (fam or {}).get(key, page.get(key, default)))
+    if opt("densities", True):
         try:
-            u, v, img, level = densities.unexplained(
+            u, v, img, level, cands = densities.unexplained(
                 path, layer, (c, ex, ey),
-                threshold=float(spec.get("density_threshold", page.get("density_threshold", 0.18))),
-                peak=float(spec.get("density_peak", page.get("density_peak", 0.28))),
-                inside=float(spec.get("density_inside", page.get("density_inside", 0.72))))
+                threshold=float(opt("density_threshold", 0.15)),
+                peak=float(opt("density_peak", 0.2)),
+                inside=float(opt("density_inside", 0.72)),
+                per_protofilament=opt("density_mode", "per_protofilament") == "per_protofilament",
+                pick=spec.get("density_pick"))
+            if spec.get("density_numbers"):
+                for num, cu, cv, kept in cands:
+                    xy = np.array([cu, cv]) @ rot.T
+                    if spec.get("flip"):
+                        xy[0] *= -1
+                    labels.append((num, xy - mid, kept))
             for rings in densities.contours(u, v, img, [level * f for f in DENSITY_LEVELS]):
                 out = []
                 for r in rings:
@@ -96,14 +105,14 @@ def layer_traces(spec, page):
                         xy[:, 0] *= -1
                     out.append(xy - mid)
                 blobs.append(out)
-            n = len(blobs[0]) if blobs else 0
-            note = f"{n} extra densit{'y' if n == 1 else 'ies'}"
+            n = sum(k for *_, k in cands)
+            note = f"{n} of {len(cands)} densit{'y' if len(cands) == 1 else 'ies'}"
             if blobs and blobs[0]:
                 allxy = np.vstack([allxy] + blobs[0])
         except Exception as e:
             note = f"no densities ({e})"
     return dict(lines=lines, lo=allxy.min(0), hi=allxy.max(0), title=title, layer=layer,
-                residues=residues, lengths=lengths, blobs=blobs, note=note)
+                residues=residues, lengths=lengths, blobs=blobs, note=note, density_labels=labels)
 
 
 class Proteins:
@@ -183,6 +192,9 @@ def density_svg(s, page, cx, cy):
         edge = f' stroke="{darken(color, 0.25)}" stroke-width="0.25"' if i == 0 else ""
         out.append(f'<path class="density" d="{d}" fill="{lighten(color, DENSITY_SHADES[i])}" '
                    f'fill-rule="evenodd"{edge}/>')
+    for num, (x, y), kept in s.get("density_labels") or []:
+        out.append(f'<text x="{cx + x * k + 1.5:.1f}" y="{cy - y * k - 1.5:.1f}" font-size="4" font-family="Helvetica" '
+                   f'fill="{"#d00" if kept else "#888"}">{num}</text>')
     return out
 
 
@@ -254,7 +266,7 @@ def build(cfg):
                 if key in cache:
                     continue
                 try:
-                    s = layer_traces(spec, page)
+                    s = layer_traces(spec, page, fam)
                     print(f"  {spec['id']:<8} chains {'+'.join(s['layer']):<8} {s['note']:<18} {s['title'][:60]}")
                 except Exception as e:
                     s = None

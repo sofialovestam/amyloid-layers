@@ -13,7 +13,10 @@
 #     flip:    true  -> mirror image (view from the other end of the fibril)
 #     chains:  [A, B] -> use exactly these chains instead of the automatic choice
 #     densities: false             -> no densities for this structure
-#     density_peak: 0.5            -> stricter for this structure only (fewer shown)
+#     density_numbers: true        -> label all candidate densities with numbers (red = shown)
+#     density_pick: [1, 3]         -> show exactly these numbered densities
+#     density_peak: 0.5            -> stricter for this structure only
+#  (densities / density_* settings can also be put on a whole family)
 #     dots:    [[x, y], [x, y]]  extra hand-placed dots, in Å from
 #              the centre of the structure (x right, y up). Set  grid: true
 #              temporarily to see an Å grid to help you place them.
@@ -41,8 +44,10 @@ page:
   # Found automatically from the EMDB map linked to each PDB entry.
   densities: true             # false = leave them out everywhere
   density_color: "#2bb5d9"
-  density_threshold: 0.18     # outline level; lower = bigger shapes
-  density_peak: 0.28          # lower = more (weaker) densities shown
+  density_mode: per_protofilament   # per_protofilament = the most enclosed density next to
+                                    # each protofilament; all = every density that qualifies
+  density_threshold: 0.15     # outline level; lower = bigger shapes
+  density_peak: 0.2           # lower = weaker densities qualify
   density_inside: 0.72        # how enclosed by the filament a density must be (0-1):
                               # 0.72 = inside the core or between protofilaments only,
                               # 0 = also show densities on the outer surface
@@ -129,6 +134,7 @@ families:
         structures:
           - id: 8BQV
           - id: 8BQW
+            density_mode: all   # three densities between/inside the protofilaments
 
   # ------------------------------------------------------------------ TDP-43
   - name: TDP-43
@@ -153,6 +159,7 @@ families:
     color: "#5f8f3e"
     column: 3
     protein: Amyloid-beta
+    densities: false
     core_name: Amyloid-β
     length: 42
     boxes:
@@ -174,6 +181,7 @@ families:
     color: "#ee8a3c"
     column: 2
     protein: 106B
+    densities: false
     length: 274
     boxes:
       - label: "?"

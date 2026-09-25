@@ -24,6 +24,7 @@ MAX_DIST = 8.0        # Å; blobs further than this from the layer's atoms are i
 RAYS = 24             # directions checked for "inside the core"
 RAY_LENGTH = 30.0     # Å
 CONTACT = 5.0         # Å; a kept blob must come this close to a modelled atom
+MIN_DRAW_AREA = 14.0  # Å²; small densities are drawn at least this big (keeping their shape)
 
 
 def buriedness(point, tree):
@@ -61,7 +62,8 @@ def fetch_map(num):
     return path
 
 
-def unexplained(cif_path, layer, frame, threshold=0.22, peak=0.35, min_area=5.0, inside=0.0, report=None):
+def unexplained(cif_path, layer, frame, threshold=0.22, peak=0.35, min_area=5.0, inside=0.0, report=None,
+                per_protofilament=True, pick=None):
     """Returns (u, v, image, level): masked density in the layer plane, and the drawing level.
 
     Both levels are fractions of the median map value at the layer's Cα atoms, so that
@@ -74,6 +76,11 @@ def unexplained(cif_path, layer, frame, threshold=0.22, peak=0.35, min_area=5.0,
                the filament. Around 0.75 keeps only densities inside the core / between
                protofilaments; 0 keeps everything.
     report:    optional list; (u, v, buriedness, peak) of every candidate blob is appended.
+    per_protofilament: keep only the most enclosed (then strongest) density next to each chain.
+    pick:      list of candidate numbers to keep instead (numbers as returned in `candidates`).
+
+    Returns (u, v, image, level, candidates), candidates = [(number, u, v, kept)], numbered
+    from most to least enclosed.
     """
     num = emdb_id(cif_path)
     if not num:
@@ -88,6 +95,7 @@ def unexplained(cif_path, layer, frame, threshold=0.22, peak=0.35, min_area=5.0,
     atoms = np.array([a.pos.tolist() for ch in st[0] for r in ch for a in r])
     layer_atoms = np.array([a.pos.tolist() for ch in st[0] if ch.name in layer for r in ch for a in r])
     layer_ca = np.array([a.pos.tolist() for ch in st[0] if ch.name in layer for r in ch for a in r if a.name == "CA"])
+    atom_chain = np.array([ch.name for ch in st[0] if ch.name in layer for r in ch for a in r])
 
     # in-plane box around the layer
     uv = np.c_[(layer_atoms - c) @ ex, (layer_atoms - c) @ ey]
@@ -123,12 +131,12 @@ def unexplained(cif_path, layer, frame, threshold=0.22, peak=0.35, min_area=5.0,
         raise ValueError(f"EMD-{num} does not line up with the model")
     level = threshold * med
 
-    # keep blobs that are big enough and on/inside the filament
+    # candidate blobs: big enough, strong enough, touching and enclosed by the filament
     labels, n = ndimage.label(img > level)
+    cands = []
     if n:
         areas = ndimage.sum(np.ones_like(img), labels, index=np.arange(1, n + 1)) * STEP ** 2
         tree = cKDTree(uv)
-        keep = np.zeros(n + 1, bool)
         for i in range(1, n + 1):
             if areas[i - 1] < min_area or img[labels == i].max() < peak * med:
                 continue
@@ -136,25 +144,52 @@ def unexplained(cif_path, layer, frame, threshold=0.22, peak=0.35, min_area=5.0,
             if ii.min() == 0 or jj.min() == 0 or ii.max() == nu - 1 or jj.max() == nv - 1:
                 continue  # touches the edge of the box: outside the filament
             blob_uv = np.c_[lo[0] + ii * STEP, lo[1] + jj * STEP]
-            dmin = tree.query(blob_uv)[0].min()
-            if dmin > MAX_DIST:
+            dists, nearest = tree.query(blob_uv)
+            if dists.min() > MAX_DIST:
                 continue
             k = np.argmax(img[ii, jj])
             top = blob_uv[k]
             b = buriedness(top, tree)
+            pk = img[ii[k], jj[k]] / med
             if report is not None:
-                report.append((top[0], top[1], b, img[ii[k], jj[k]] / med))
-            if b >= inside and dmin <= CONTACT:
-                keep[i] = True
-        # draw the smoother map, restricted to (slightly grown) kept blobs
-        region = ndimage.binary_dilation(keep[labels], iterations=int(1.5 / STEP))
-        img = np.where(region, smooth, 0.0)
+                report.append((top[0], top[1], b, pk))
+            if b >= inside and dists.min() <= CONTACT:
+                cands.append(dict(label=i, u=top[0], v=top[1], b=b, peak=pk,
+                                  chain=atom_chain[nearest[np.argmin(dists)]]))
+
+    # number candidates from most to least enclosed, then strongest
+    cands.sort(key=lambda d: (-round(d["b"], 2), -d["peak"]))
+    for num, d in enumerate(cands, 1):
+        d["num"] = num
+    if pick:
+        chosen = [d for d in cands if d["num"] in set(int(p) for p in pick)]
+    elif per_protofilament:
+        chosen, seen = [], set()
+        for d in cands:
+            if d["chain"] not in seen:
+                seen.add(d["chain"])
+                chosen.append(d)
     else:
-        img[:] = 0.0
+        chosen = cands
+
+    # draw the smoother map around each chosen blob; small ones are scaled up to a visible size
+    out = np.zeros_like(img)
+    need = int(MIN_DRAW_AREA / STEP ** 2)
+    for d in chosen:
+        region = ndimage.binary_dilation(labels == d["label"], iterations=int(3.0 / STEP))
+        vals = np.sort(smooth[region])[::-1]
+        t = vals[min(need, len(vals) - 1)]
+        blob = np.where(region, smooth, 0.0)
+        if 0 < t < level:
+            blob *= level / t
+        out = np.maximum(out, blob)
+    img = out
+    chosen_nums = {d["num"] for d in chosen}
+    candidates = [(d["num"], d["u"], d["v"], d["num"] in chosen_nums) for d in cands]
 
     u = lo[0] + np.arange(nu) * STEP
     v = lo[1] + np.arange(nv) * STEP
-    return u, v, img, level
+    return u, v, img, level, candidates
 
 
 def contours(u, v, img, levels):
