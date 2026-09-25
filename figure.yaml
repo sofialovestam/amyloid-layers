@@ -41,8 +41,11 @@ page:
   # Found automatically from the EMDB map linked to each PDB entry.
   densities: true             # false = leave them out everywhere
   density_color: "#2bb5d9"
-  density_threshold: 0.22     # outline level; lower = bigger shapes
-  density_peak: 0.35          # lower = more (weaker) densities shown
+  density_threshold: 0.18     # outline level; lower = bigger shapes
+  density_peak: 0.28          # lower = more (weaker) densities shown
+  density_inside: 0.72        # how enclosed by the filament a density must be (0-1):
+                              # 0.72 = inside the core or between protofilaments only,
+                              # 0 = also show densities on the outer surface
   density_label: Non-proteinaceous density
 
 columns: 3

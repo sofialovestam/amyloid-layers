@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.expanduser("~/.cache/amyloid_pdb")
 DOT_COLOR = "#2bb5d9"
 DENSITY_LEVELS = (1.0, 1.4, 2.0)      # nested contours, as multiples of the outline level
-DENSITY_SHADES = (0.55, 0.25, 0.0)     # how much each is lightened towards white
+DENSITY_SHADES = (0.38, 0.12, 0.0)     # how much each is lightened towards white
 
 MARGIN = 6
 COL_GAP = 12
@@ -85,8 +85,9 @@ def layer_traces(spec, page):
         try:
             u, v, img, level = densities.unexplained(
                 path, layer, (c, ex, ey),
-                threshold=float(spec.get("density_threshold", page.get("density_threshold", 0.22))),
-                peak=float(spec.get("density_peak", page.get("density_peak", 0.35))))
+                threshold=float(spec.get("density_threshold", page.get("density_threshold", 0.18))),
+                peak=float(spec.get("density_peak", page.get("density_peak", 0.28))),
+                inside=float(spec.get("density_inside", page.get("density_inside", 0.72))))
             for rings in densities.contours(u, v, img, [level * f for f in DENSITY_LEVELS]):
                 out = []
                 for r in rings:
@@ -133,6 +134,11 @@ class Proteins:
         return ex["color"] if ex else self.fam["color"]
 
 
+def darken(hex_color, amount):
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    return "#" + "".join(f"{round(v * (1 - amount)):02x}" for v in (r, g, b))
+
+
 def lighten(hex_color, amount):
     r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
     mix = lambda v: round(v + (255 - v) * amount)
@@ -174,7 +180,7 @@ def density_svg(s, page, cx, cy):
         if not rings:
             continue
         d = " ".join("M" + " L".join(f"{cx + x * k:.2f},{cy - y * k:.2f}" for x, y in r) + " Z" for r in rings)
-        edge = f' stroke="{lighten(color, 0.35)}" stroke-width="0.2"' if i == 0 else ""
+        edge = f' stroke="{darken(color, 0.25)}" stroke-width="0.25"' if i == 0 else ""
         out.append(f'<path class="density" d="{d}" fill="{lighten(color, DENSITY_SHADES[i])}" '
                    f'fill-rule="evenodd"{edge}/>')
     return out

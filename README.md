@@ -38,10 +38,12 @@ rebuilt from scratch on every run.
 
 Found automatically: for each structure the EMDB map deposited with it is downloaded
 (cached in `~/.cache/amyloid_emdb`), density within 2.5 Å of any modelled atom is removed,
-and the remaining blobs in the layer are drawn as nested contours (pale = weaker density).
+and the remaining blobs that sit inside the filament core (or between protofilaments) and touch
+the protein are drawn as nested contours (pale = weaker density).
 Levels are relative to the protein density in the same map, so maps look comparable.
 
-In figure.yaml: `densities: false` (everywhere, or per structure), `density_peak`
+In figure.yaml: `densities: false` (everywhere, or per structure), `density_inside`
+(0 = also show densities on the outer surface), `density_peak`
 (lower = more blobs), `density_threshold` (lower = bigger outlines). If a map does not fit its
 model, the terminal says so and no densities are drawn for that structure.
 

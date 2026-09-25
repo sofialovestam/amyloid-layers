@@ -21,6 +21,20 @@ MASK_RADIUS = 2.5     # Å around every modelled atom
 RISE = 4.75           # Å; atoms are also copied one layer up and down before masking
 MARGIN = 12.0         # Å around the layer
 MAX_DIST = 8.0        # Å; blobs further than this from the layer's atoms are ignored
+RAYS = 24             # directions checked for "inside the core"
+RAY_LENGTH = 30.0     # Å
+CONTACT = 5.0         # Å; a kept blob must come this close to a modelled atom
+
+
+def buriedness(point, tree):
+    """Fraction of in-plane directions from point that run into protein within RAY_LENGTH."""
+    steps = np.arange(1.0, RAY_LENGTH, 1.0)
+    hits = 0
+    for a in np.linspace(0, 2 * np.pi, RAYS, endpoint=False):
+        ray = point + np.outer(steps, [np.cos(a), np.sin(a)])
+        if (tree.query(ray)[0] < 2.5).any():
+            hits += 1
+    return hits / RAYS
 
 
 def emdb_id(cif_path):
@@ -47,7 +61,7 @@ def fetch_map(num):
     return path
 
 
-def unexplained(cif_path, layer, frame, threshold=0.22, peak=0.35, min_area=3.0):
+def unexplained(cif_path, layer, frame, threshold=0.22, peak=0.35, min_area=5.0, inside=0.0, report=None):
     """Returns (u, v, image, level): masked density in the layer plane, and the drawing level.
 
     Both levels are fractions of the median map value at the layer's Cα atoms, so that
@@ -56,6 +70,10 @@ def unexplained(cif_path, layer, frame, threshold=0.22, peak=0.35, min_area=3.0)
     peak:      a blob is only kept if its strongest point reaches this. Lower = more blobs.
                (Keeps out the broad, faint fuzzy-coat density around the filament.)
     min_area:  Å², smaller blobs are dropped.
+    inside:    minimum buriedness (0-1): the fraction of directions from the blob that run into
+               the filament. Around 0.75 keeps only densities inside the core / between
+               protofilaments; 0 keeps everything.
+    report:    optional list; (u, v, buriedness, peak) of every candidate blob is appended.
     """
     num = emdb_id(cif_path)
     if not num:
@@ -118,7 +136,15 @@ def unexplained(cif_path, layer, frame, threshold=0.22, peak=0.35, min_area=3.0)
             if ii.min() == 0 or jj.min() == 0 or ii.max() == nu - 1 or jj.max() == nv - 1:
                 continue  # touches the edge of the box: outside the filament
             blob_uv = np.c_[lo[0] + ii * STEP, lo[1] + jj * STEP]
-            if tree.query(blob_uv)[0].min() <= MAX_DIST:
+            dmin = tree.query(blob_uv)[0].min()
+            if dmin > MAX_DIST:
+                continue
+            k = np.argmax(img[ii, jj])
+            top = blob_uv[k]
+            b = buriedness(top, tree)
+            if report is not None:
+                report.append((top[0], top[1], b, img[ii[k], jj[k]] / med))
+            if b >= inside and dmin <= CONTACT:
                 keep[i] = True
         # draw the smoother map, restricted to (slightly grown) kept blobs
         region = ndimage.binary_dilation(keep[labels], iterations=int(1.5 / STEP))
