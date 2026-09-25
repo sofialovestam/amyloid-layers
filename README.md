@@ -30,6 +30,14 @@ Any structure that has a problem is listed at the end of the run and shown in re
       dots: [[0, 5]]    # cyan dot(s) for extra densities, Å from the centre
       grid: true        # temporary 10 Å grid to help place dots
 
+Filaments with no deposited model (e.g. the wide Pick filament) can be drawn from copies
+of another structure's layer:
+
+    - id: 6GX5
+      copies:
+        - {}                                      # first copy as is
+        - {rotate: 180, shift: [114.3, -14.3]}    # second copy, turned and moved (Å)
+
 Tip: change the Illustrator file only for final touches. Anything you want to keep
 for next time (rotation, dots, labels) belongs in figure.yaml, because the figure is
 rebuilt from scratch on every run.

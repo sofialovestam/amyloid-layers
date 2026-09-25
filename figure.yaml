@@ -77,6 +77,10 @@ families:
         group: 3R
         structures:
           - id: 6GX5        # narrow Pick filament
+          - id: 6GX5        # wide Pick filament: no deposited model, so drawn as two
+            copies:         # narrow-filament protofilaments related by 180° (layout only)
+              - {}
+              - {rotate: 180, shift: [114.3, -14.3]}   # Å; change to move the second copy
       - label: AD, PART, GSS, FBD, FDD
         core_label: AD
         group: 3R:4R
@@ -205,30 +209,31 @@ families:
       - label: aFTLD-U (fold A)
         structures:
           - id: 8ONS
-      - label: Fold B
-        structures:
-          - id: 9THM
-          - id: 9THN
-          - id: 9THP
-      - label: Fold C
-        structures:
-          - id: 9TKK
-          - id: 9TKL       # doublet
-          - id: 9TL2
-      - label: Fold D / D′
-        structures:
-          - id: 9TKJ
-          - id: 9TKZ
-      - label: Fold E
-        structures:
-          - id: 9TKH
-          - id: 9TKI
-      - label: Fold F
-        structures:
-          - id: 9TKG
-      - label: Fold G
-        structures:
-          - id: 9TKF
-      - label: Fold H (Y38C)
-        structures:
-          - id: 9TKE
+      # Other TAF15 folds (bioRxiv 2026) - remove the # at the start of the lines to show them again
+#      - label: Fold B
+#        structures:
+#          - id: 9THM
+#          - id: 9THN
+#          - id: 9THP
+#      - label: Fold C
+#        structures:
+#          - id: 9TKK
+#          - id: 9TKL       # doublet
+#          - id: 9TL2
+#      - label: Fold D / D′
+#        structures:
+#          - id: 9TKJ
+#          - id: 9TKZ
+#      - label: Fold E
+#        structures:
+#          - id: 9TKH
+#          - id: 9TKI
+#      - label: Fold F
+#        structures:
+#          - id: 9TKG
+#      - label: Fold G
+#        structures:
+#          - id: 9TKF
+#      - label: Fold H (Y38C)
+#        structures:
+#          - id: 9TKE

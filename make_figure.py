@@ -111,8 +111,37 @@ def layer_traces(spec, page, fam=None):
                 allxy = np.vstack([allxy] + blobs[0])
         except Exception as e:
             note = f"no densities ({e})"
-    return dict(lines=lines, lo=allxy.min(0), hi=allxy.max(0), title=title, layer=layer,
-                residues=residues, lengths=lengths, blobs=blobs, note=note, density_labels=labels)
+    s = dict(lines=lines, lo=allxy.min(0), hi=allxy.max(0), title=title, layer=layer,
+             residues=residues, lengths=lengths, blobs=blobs, note=note, density_labels=labels)
+    if spec.get("copies"):
+        s = apply_copies(s, spec["copies"])
+    return s
+
+
+def apply_copies(s, copies):
+    """Draw the same layer several times (e.g. a doublet with no deposited model).
+
+    copies: list of {rotate: degrees, shift: [x, y] in Å, flip: bool}, applied to the
+    already-centred layer; the result is centred again.
+    """
+    def moved(xy, c):
+        th = math.radians(float(c.get("rotate", 0)))
+        rot = np.array([[math.cos(th), -math.sin(th)], [math.sin(th), math.cos(th)]])
+        out = np.asarray(xy, float) @ rot.T
+        if c.get("flip"):
+            out = out * [-1, 1]
+        return out + np.asarray(c.get("shift", [0, 0]), float)
+
+    copies = [c or {} for c in copies]
+    lines = [(moved(l, c), d) for c in copies for l, d in s["lines"]]
+    blobs = [[moved(r, c) for c in copies for r in rings] for rings in s["blobs"]]
+    labels = [(n, moved(xy, c), k) for c in copies for n, xy, k in s["density_labels"]]
+    allxy = np.vstack([l for l, _ in lines] + [r for r in (blobs[0] if blobs else [])])
+    mid = (allxy.min(0) + allxy.max(0)) / 2
+    return dict(s, lines=[(l - mid, d) for l, d in lines],
+                blobs=[[r - mid for r in rings] for rings in blobs],
+                density_labels=[(n, xy - mid, k) for n, xy, k in labels],
+                lo=allxy.min(0) - mid, hi=allxy.max(0) - mid)
 
 
 class Proteins:
@@ -309,7 +338,8 @@ def build(cfg):
                         f'stroke="{color}" stroke-width="0.6"/>')
             for spec, s, cx, cy in placed:
                 body.append(structure_svg(s, spec, prot, page, bx + cx, y + cy))
-                singles[str(spec["id"])] = (spec, s, prot)
+                name = str(spec["id"]) + (f"_x{len(spec['copies'])}" if spec.get("copies") else "")
+                singles[name] = (spec, s, prot)
             for spec, s in structs:
                 if s is None:
                     body.append(text(bx + BOX_PAD, y + BOX_PAD + 6, f"{spec['id']}: see terminal", page, color="#d00"))
@@ -462,6 +492,9 @@ def main():
         cfg = yaml.safe_load(f)
     out = os.path.join(HERE, "output")
     os.makedirs(os.path.join(out, "structures"), exist_ok=True)
+    for old in os.listdir(os.path.join(out, "structures")):   # drop structures no longer in the figure
+        if old.endswith(".svg"):
+            os.remove(os.path.join(out, "structures", old))
 
     print("Structures:")
     svg, singles, page, failures = build(cfg)
